@@ -116,15 +116,17 @@ sub show : Chained('load') PathPart('')
     );
 }
 
-sub puids : Chained('load') PathPart('puids')
+sub fingerprints : Chained('load') PathPart('fingerprints')
 {
     my ($self, $c) = @_;
 
     my $recording = $c->stash->{recording};
     my @puids = $c->model('RecordingPUID')->find_by_recording($recording->id);
+    my @acoustids = $c->model('RecordingAcoustID')->find_by_recording($recording->id);
     $c->stash(
-        puids    => \@puids,
-        template => 'recording/puids.tt',
+        puids     => \@puids,
+        acoustids => \@acoustids,
+        template  => 'recording/fingerprints.tt',
     );
 }
 
@@ -243,7 +245,7 @@ sub delete_puid : Chained('load') PathPart('remove-puid') RequireAuth
             },
             on_creation => sub {
                 $c->response->redirect(
-                    $c->uri_for_action('/recording/puids', [ $recording->gid ]));
+                    $c->uri_for_action('/recording/fingerprints', [ $recording->gid ]));
             }
         );
     }
