@@ -565,6 +565,11 @@ table.tbl tr.ev th {
     background: #F2F2F2;
 }
 
+table.tbl td.disabled-acoustid a {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
 table.tbl .pos { width: 1em; white-space: nowrap; }
 table.tbl th { word-break: keep-all; white-space: nowrap; }
 

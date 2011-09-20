@@ -41,4 +41,44 @@
         <p>[% l('This recording does not have any associated PUIDs') %]</p>
     [% END %]
 
+    <h2>[%- l('Associated AcoustIDs') -%]</h2>
+
+    [% IF acoustids.size %]
+        <table class="tbl">
+            <thead>
+                <tr>
+                    <th>[% l('AcoustID') %]</th>
+                    [% IF c.user_exists %]
+                        <th style="width: 5em">
+                            [% l('Actions') %]
+                        </th>
+                    [% END %]
+                </tr>
+            </thead>
+	    <tbody>
+            [% FOR acoustid IN acoustids %]
+                <tr[% ' class="ev"' IF loop.count % 2 == 0 %]>
+                    <td[% IF acoustid.disabled %] class="disabled-acoustid"[% END %]>
+                      <code><a href="http://acoustid.org/track/[% acoustid.acoustid | html %]">
+                        [% acoustid.acoustid | html %]</a></code>
+                    </td>
+                    [% IF c.user_exists %]
+                        <td>
+                        [% IF acoustid.disabled %]
+                          <a href="http://acoustid.org/edit/toggle-track-mbid?track_gid=[% acoustid.acoustid | html %]&amp;mbid=[% recording.gid %]&amp;state=0">
+                            [% l('Enable') %]</a>
+                        [% ELSE %]
+                          <a href="http://acoustid.org/edit/toggle-track-mbid?track_gid=[% acoustid.acoustid | html %]&amp;mbid=[% recording.gid %]&amp;state=1">
+                            [% l('Remove') %]</a>
+                        [% END %]
+                        </td>
+                    [% END %]
+                </tr>
+            [% END %]
+	    </tbody>
+        </table>
+
+    [% ELSE %]
+        <p>[% l('This recording does not have any associated AcoustIDs') %]</p>
+    [% END %]
 [%- END -%]
