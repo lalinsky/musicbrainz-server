@@ -89,6 +89,7 @@ ALTER TABLE medium_cdtoc ADD CONSTRAINT medium_cdtoc_pkey PRIMARY KEY (id);
 ALTER TABLE medium_format ADD CONSTRAINT medium_format_pkey PRIMARY KEY (id);
 ALTER TABLE puid ADD CONSTRAINT puid_pkey PRIMARY KEY (id);
 ALTER TABLE recording ADD CONSTRAINT recording_pkey PRIMARY KEY (id);
+ALTER TABLE recording_acoustid ADD CONSTRAINT recording_acoustid_pkey PRIMARY KEY (id);
 ALTER TABLE recording_annotation ADD CONSTRAINT recording_annotation_pkey PRIMARY KEY (recording, annotation);
 ALTER TABLE recording_gid_redirect ADD CONSTRAINT recording_gid_redirect_pkey PRIMARY KEY (gid);
 ALTER TABLE recording_meta ADD CONSTRAINT recording_meta_pkey PRIMARY KEY (id);

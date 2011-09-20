@@ -89,6 +89,7 @@ DROP TABLE medium_cdtoc;
 DROP TABLE medium_format;
 DROP TABLE puid;
 DROP TABLE recording;
+DROP TABLE recording_acoustid;
 DROP TABLE recording_annotation;
 DROP TABLE recording_gid_redirect;
 DROP TABLE recording_meta;

@@ -138,6 +138,7 @@ my @tables = qw(
     medium_format
     puid
     recording
+    recording_acoustid
     recording_annotation
     recording_gid_redirect
     recording_meta
@@ -243,6 +244,7 @@ my @group_core = qw(
     medium_format
     puid
     recording
+    recording_acoustid
     recording_gid_redirect
     recording_puid
     release

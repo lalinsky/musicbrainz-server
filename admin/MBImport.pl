@@ -414,6 +414,7 @@ sub ImportAllTables
         medium_format
         puid
         recording
+        recording_acoustid
         recording_annotation
         recording_gid_redirect
         recording_meta

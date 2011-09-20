@@ -89,6 +89,7 @@ ALTER TABLE medium_cdtoc DROP CONSTRAINT medium_cdtoc_pkey;
 ALTER TABLE medium_format DROP CONSTRAINT medium_format_pkey;
 ALTER TABLE puid DROP CONSTRAINT puid_pkey;
 ALTER TABLE recording DROP CONSTRAINT recording_pkey;
+ALTER TABLE recording_acoustid DROP CONSTRAINT recording_acoustid_pkey;
 ALTER TABLE recording_annotation DROP CONSTRAINT recording_annotation_pkey;
 ALTER TABLE recording_gid_redirect DROP CONSTRAINT recording_gid_redirect_pkey;
 ALTER TABLE recording_meta DROP CONSTRAINT recording_meta_pkey;

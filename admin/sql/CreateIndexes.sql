@@ -187,6 +187,9 @@ CREATE INDEX recording_idx_artist_credit ON recording (artist_credit);
 CREATE UNIQUE INDEX recording_puid_idx_uniq ON recording_puid (recording, puid);
 CREATE INDEX recording_puid_idx_puid ON recording_puid (puid);
 
+CREATE UNIQUE INDEX recording_acoustid_idx_uniq ON recording_acoustid (recording, acoustid);
+CREATE INDEX recording_acoustid_idx_acoustid ON recording_acoustid (acoustid);
+
 CREATE INDEX recording_tag_idx_tag ON recording_tag (tag);
 CREATE INDEX recording_tag_idx_recording ON recording_tag (recording);
 

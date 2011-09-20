@@ -856,6 +856,15 @@ CREATE TABLE recording_puid
     created             TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE recording_acoustid
+(
+    id                  INTEGER NOT NULL, -- PK
+    acoustid            UUID NOT NULL,
+    recording           INTEGER NOT NULL,
+    disabled            BOOLEAN NOT NULL DEFAULT false,
+    created             TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE recording_tag
 (
     recording           INTEGER NOT NULL, -- PK, references recording.id

@@ -284,6 +284,10 @@ CREATE TRIGGER "reptg_recording_puid"
 AFTER INSERT OR DELETE OR UPDATE ON "recording_puid"
 FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');
 
+CREATE TRIGGER "reptg_recording_acoustid"
+AFTER INSERT OR DELETE OR UPDATE ON "recording_acoustid"
+FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');
+
 CREATE TRIGGER "reptg_recording_tag"
 AFTER INSERT OR DELETE OR UPDATE ON "recording_tag"
 FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');

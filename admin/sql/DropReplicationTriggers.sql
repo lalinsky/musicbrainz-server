@@ -82,6 +82,7 @@ DROP TRIGGER "reptg_recording_annotation" ON "recording_annotation";
 DROP TRIGGER "reptg_recording_meta" ON "recording_meta";
 DROP TRIGGER "reptg_recording_gid_redirect" ON "recording_gid_redirect";
 DROP TRIGGER "reptg_recording_puid" ON "recording_puid";
+DROP TRIGGER "reptg_recording_acoustid" ON "recording_acoustid";
 DROP TRIGGER "reptg_recording_tag" ON "recording_tag";
 DROP TRIGGER "reptg_release" ON "release";
 DROP TRIGGER "reptg_release_annotation" ON "release_annotation";

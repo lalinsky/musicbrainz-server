@@ -135,6 +135,8 @@ DROP INDEX medium_cdtoc_idx_uniq;
 DROP INDEX medium_idx_release;
 DROP INDEX medium_idx_tracklist;
 DROP INDEX puid_idx_puid;
+DROP INDEX recording_acoustid_idx_acoustid;
+DROP INDEX recording_acoustid_idx_uniq;
 DROP INDEX recording_idx_artist_credit;
 DROP INDEX recording_idx_gid;
 DROP INDEX recording_idx_name;
