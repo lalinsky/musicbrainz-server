@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE recording_acoustid
 (
     id                  INTEGER NOT NULL, -- PK
@@ -23,7 +25,5 @@ CREATE TABLE replication_control
 
 ALTER TABLE acoustid_mb_replication_control ADD CONSTRAINT acoustid_mb_replication_control_pkey PRIMARY KEY (id);
 
--- CREATE TRIGGER "reptg_recording_acoustid"
--- AFTER INSERT OR DELETE OR UPDATE ON "recording_acoustid"
--- FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');
+COMMIT;
 

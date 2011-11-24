@@ -1,6 +1,7 @@
 -- Automatically generated, do not edit.
 \unset ON_ERROR_STOP
 
+DROP TABLE acoustid_mb_replication_control;
 DROP TABLE annotation;
 DROP TABLE artist;
 DROP TABLE artist_alias;

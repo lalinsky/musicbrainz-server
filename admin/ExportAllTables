@@ -38,6 +38,7 @@ use Encode qw( encode );
 ################################################################################
 
 my @tables = qw(
+    acoustid_mb_replication_control
     artist_rating_raw
     artist_tag_raw
     cdtoc_raw
@@ -190,6 +191,7 @@ my @replication_tables = qw(
 
 
 my @group_core = qw(
+    acoustid_mb_replication_control
     artist
     artist_alias
     artist_credit

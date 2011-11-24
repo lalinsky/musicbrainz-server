@@ -1,6 +1,7 @@
 -- Automatically generated, do not edit.
 \set ON_ERROR_STOP 1
 
+ALTER TABLE acoustid_mb_replication_control ADD CONSTRAINT acoustid_mb_replication_control_pkey PRIMARY KEY (id);
 ALTER TABLE annotation ADD CONSTRAINT annotation_pkey PRIMARY KEY (id);
 ALTER TABLE artist ADD CONSTRAINT artist_pkey PRIMARY KEY (id);
 ALTER TABLE artist_alias ADD CONSTRAINT artist_alias_pkey PRIMARY KEY (id);

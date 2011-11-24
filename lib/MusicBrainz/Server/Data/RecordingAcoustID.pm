@@ -17,7 +17,7 @@ sub _table
 
 sub _columns
 {
-    return 'id, acoustid, recording, disabled';
+    return 'ra.id, ra.acoustid, r.id AS recording, ra.disabled';
 }
 
 sub _column_mapping
@@ -43,8 +43,9 @@ sub find_by_recording
     return () unless @ids;
 
     my $query = "SELECT " . $self->_columns . "
-                 FROM " . $self->_table . "
-                 WHERE recording IN (" . placeholders(@ids) . ")
+                 FROM " . $self->_table . " ra
+                 JOIN recording r ON ra.recording = r.gid
+                 WHERE r.id IN (" . placeholders(@ids) . ")
                  ORDER BY id";
     return query_to_list(
         $self->c->sql, sub { $self->_new_from_row(@_) },

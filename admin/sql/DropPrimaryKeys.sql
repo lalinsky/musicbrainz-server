@@ -1,6 +1,7 @@
 -- Automatically generated, do not edit.
 \unset ON_ERROR_STOP
 
+ALTER TABLE acoustid_mb_replication_control DROP CONSTRAINT acoustid_mb_replication_control_pkey;
 ALTER TABLE annotation DROP CONSTRAINT annotation_pkey;
 ALTER TABLE artist DROP CONSTRAINT artist_pkey;
 ALTER TABLE artist_alias DROP CONSTRAINT artist_alias_pkey;

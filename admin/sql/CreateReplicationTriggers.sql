@@ -5,6 +5,10 @@ SET search_path = musicbrainz;
 
 BEGIN;
 
+CREATE TRIGGER "reptg_acoustid_mb_replication_control"
+AFTER INSERT OR DELETE OR UPDATE ON "acoustid_mb_replication_control"
+FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');
+
 CREATE TRIGGER "reptg_annotation"
 AFTER INSERT OR DELETE OR UPDATE ON "annotation"
 FOR EACH ROW EXECUTE PROCEDURE "recordchange" ('verbose');

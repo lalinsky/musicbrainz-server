@@ -2,6 +2,7 @@ SET search_path = musicbrainz;
 
 SET autocommit TO 'on';
 
+DROP TRIGGER "reptg_acoustid_mb_replication_control" ON "acoustid_mb_replication_control";
 DROP TRIGGER "reptg_annotation" ON "annotation";
 DROP TRIGGER "reptg_artist" ON "artist";
 DROP TRIGGER "reptg_artist_alias" ON "artist_alias";

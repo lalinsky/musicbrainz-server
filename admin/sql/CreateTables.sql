@@ -1,7 +1,7 @@
 \set ON_ERROR_STOP 1
 BEGIN;
 
-CREATE TABLE replication_control
+CREATE TABLE acoustid_mb_replication_control
 (
     id                              INTEGER NOT NULL, -- PK
     current_schema_sequence         INTEGER NOT NULL,
