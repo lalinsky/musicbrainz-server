@@ -1,0 +1,187 @@
+#!/usr/bin/env perl
+
+#____________________________________________________________________________
+#
+#   MusicBrainz -- the open internet music database
+#
+#   Copyright (C) 2011 Lukas Lalinsky
+#
+#   This program is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#   $Id$
+#____________________________________________________________________________
+
+use strict;
+use warnings;
+
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Getopt::Long;
+use MusicBrainz::Server::Context;
+use Sql;
+use LWP::UserAgent;
+use File::Temp qw( tempdir );
+use HTTP::Status qw( RC_OK RC_NOT_FOUND RC_NOT_MODIFIED );
+use XML::Simple;
+use List::Util qw( max );
+
+my $help = 0;
+my $baseuri = "http://acoustid.org/data/replication";
+my $tmpdir = "/tmp";
+
+GetOptions(
+    "help|h"                    => \$help,
+    "base-uri=s"                => \$baseuri,
+    "tmp-dir|t=s"               => \$tmpdir,
+);
+
+sub usage
+{
+    print <<EOF;
+Usage: FetchAcoustidUpdates [options]
+
+    -h, --help        show this help
+    --base-uri=URI    load the replication data from this location
+                      (default: from acoustid.org via HTTP)
+    -t, --tmp-dir DIR use DIR for temporary storage (default: /tmp)
+
+EOF
+}
+
+if ($help)
+{
+    usage();
+    exit 0;
+}
+
+$SIG{'INT'} = sub { die "SIGINT\n" };
+
+my $c = MusicBrainz::Server::Context->new;
+my $sql = Sql->new($c->dbh);
+
+my ($schema_seq, $repl_seq, $repl_date) = @{
+    $sql->select_single_row_array("
+        SELECT
+            current_schema_sequence,
+            current_replication_sequence,
+            last_replication_date
+        FROM acoustid_mb_replication_control");
+};
+
+unless (defined $repl_seq)
+{
+    print localtime() . " : This database does not correspond to any replication sequence"
+        . " - you cannot update this database using replication\n";
+    exit 1;
+}
+
+NEXT_PACKET:
+
+my $mydir = tempdir("acoustidrepl-XXXXXX", DIR => $tmpdir);
+
+my $next_repl_seq = $repl_seq + 1;
+my @files = (
+    "acoustid-musicbrainz-update-$next_repl_seq.xml.bz2",
+    "acoustid-musicbrainz-update-$next_repl_seq.xml.bz2.asc",
+);
+
+my $ua = LWP::UserAgent->new(agent => 'FetchAcoustidUpdates');
+$ua->env_proxy;
+
+for my $file (@files)
+{
+    my $url = "$baseuri/$file";
+    my $localfile = "$mydir/$file";
+
+    print localtime() . " : Downloading $url to $localfile\n";
+    my $resp = $ua->mirror($url, $localfile);
+
+    if ($resp->code == RC_NOT_FOUND)
+    {
+        print localtime() . " : Replication packet #$next_repl_seq not available\n";
+        exit 0;
+    }
+
+    unless ($resp->code == RC_OK or $resp->code == RC_NOT_MODIFIED)
+    {
+        print $resp->as_string;
+        exit 1;
+    }
+}
+
+my $localfile = $mydir . "/" . $files[0];
+my $localxmlfile = $localfile;
+$localxmlfile =~ s/\.bz2$//;
+my $localascfile = $mydir . "/" . $files[1];
+
+print localtime() . " : Verifying the signature for $localfile\n";
+my $gpgout = `gpg --verify $localascfile 2>&1`;
+print $gpgout;
+exit $? if $?;
+
+unless ($gpgout =~ /D47C 0856 B64C 27DF 085F  1796 73D2 4F75 B8ED 25DD/)
+{
+    print localtime() . " : The signature has invalid fingerprint\n";
+    exit 0;
+}
+
+print localtime() . " : Decompressing $localfile\n";
+system "bzip2 -d $localfile";
+exit $? if $?;
+
+my $tree = XMLin($localxmlfile, ForceArray => ['transaction', 'event', 'column'], ForceContent => 1);
+
+my %txs = %{ $tree->{transaction} };
+my @tx_ids = sort { max(keys %{ $txs{$a}->{event} }) cmp max(keys %{ $txs{$b}->{event} }) } keys %txs;
+
+sub fix_columns
+{
+    my $columns = shift;
+    $columns = $columns->{column};
+    my %result = map {
+        $_ => (
+            exists $columns->{$_}->{null} && $columns->{$_}->{null} eq 'yes'
+                ? undef
+                : $columns->{$_}->{content}
+        ) } keys %$columns;
+    return \%result;
+}
+
+Sql::run_in_transaction(sub
+{
+    for my $tx_id (@tx_ids) {
+        my $tx = $txs{$tx_id};
+        for my $event_id (sort keys %{ $tx->{event} }) {
+            my $event = $tx->{event}->{$event_id};
+            if ($event->{op} eq 'I') {
+                $sql->insert_row($event->{table}, fix_columns($event->{values}));
+            }
+            elsif ($event->{op} eq 'U') {
+                $sql->update_row($event->{table}, fix_columns($event->{values}), fix_columns($event->{keys}));
+            }
+            elsif ($event->{op} eq 'D') {
+                $sql->delete_row($event->{table}, fix_columns($event->{keys}));
+            }
+        }
+    }
+}, $sql);
+
+++$repl_seq;
+
+goto NEXT_PACKET;
+
+# vi: set ts=4 sw=4 :
+
