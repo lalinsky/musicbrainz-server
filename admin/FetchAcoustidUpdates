@@ -153,12 +153,18 @@ sub fix_columns
     return \%result;
 }
 
+my %allowed_tables = (
+    acoustid_mb_replication_control => 1,
+    recording_acoustid              => 1,
+);
+
 Sql::run_in_transaction(sub
 {
     for my $tx_id (@tx_ids) {
         my $tx = $txs{$tx_id};
         for my $event_id (sort keys %{ $tx->{event} }) {
             my $event = $tx->{event}->{$event_id};
+            next unless exists $allowed_tables{ $event->{table} };
             if ($event->{op} eq 'I') {
                 $sql->insert_row($event->{table}, fix_columns($event->{values}));
             }
