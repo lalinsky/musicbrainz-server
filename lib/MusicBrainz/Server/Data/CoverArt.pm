@@ -10,7 +10,7 @@ use aliased 'MusicBrainz::Server::Entity::Release';
 use aliased 'MusicBrainz::Server::Entity::URL';
 
 use DateTime::Format::Pg;
-use List::UtilsBy qw( sort_by );
+use List::UtilsBy qw( rev_sort_by );
 use MusicBrainz::Server::Data::Utils qw( placeholders query_to_list );
 use MusicBrainz::Server::CoverArt;
 
@@ -31,19 +31,19 @@ sub _build_providers {
             domain               => 'cdbaby.com',
             uri_expression       => 'http://(www\.)?cdbaby\.com/cd/(\w)(\w)(\w*)',
             image_uri_template   => 'http://cdbaby.name/$2/$3/$2$3$4.jpg',
-            release_uri_template => 'http://www.cdbaby.com/cd/$2$3$4/from/musicbrainz',
+            info_uri_template    => 'http://www.cdbaby.com/cd/$2$3$4/from/musicbrainz',
         ),
         RegularExpressionProvider->new(
             name                 => "CD Baby",
             domain               => 'cdbaby.name',
             uri_expression       => "http://(www\.)?cdbaby\.name/([a-z0-9])/([a-z0-9])/([A-Za-z0-9]*).jpg",
             image_uri_template   => 'http://cdbaby.name/$2/$3/$4.jpg',
-            release_uri_template => 'http://www.cdbaby.com/cd/$4/from/musicbrainz',
+            info_uri_template    => 'http://www.cdbaby.com/cd/$4/from/musicbrainz',
         ),
         RegularExpressionProvider->new(
             name               => 'archive.org',
             domain             => 'archive.org',
-            uri_expression     => '^(.*\.(jpg|jpeg|png|gif))$',
+            uri_expression     => '^(.*(\.jpg|\.jpeg|\.png|\.gif|))$',
             image_uri_template => '$1',
         ),
         # XXX Can the following be merged somehow?
@@ -52,14 +52,14 @@ sub _build_providers {
             domain               => 'www.jamendo.com',
             uri_expression       => 'http://www\.jamendo\.com/(\w\w/)?album/(\d{1,3})\W?$',
             image_uri_template   => 'http://imgjam.com/albums/s0/$2/covers/1.200.jpg',
-            release_uri_template => 'http://www.jamendo.com/album/$2',
+            info_uri_template    => 'http://www.jamendo.com/album/$2',
         ),
         RegularExpressionProvider->new(
             name                 => "Jamendo",
             domain               => 'www.jamendo.com',
             uri_expression       => 'http://www\.jamendo\.com/(\w\w/)?album/(\d+)(\d{3})',
             image_uri_template   => 'http://imgjam.com/albums/s$2/$2$3/covers/1.200.jpg',
-            release_uri_template => 'http://www.jamendo.com/album/$2$3',
+            info_uri_template    => 'http://www.jamendo.com/album/$2$3',
         ),
         RegularExpressionProvider->new(
             name               => '8bitpeoples.com',
@@ -70,23 +70,22 @@ sub _build_providers {
         RegularExpressionProvider->new(
             name                 => 'www.ozon.ru',
             domain               => 'www.ozon.ru',
-            uri_expression       => 'http://www.ozon\.ru/context/detail/id/(\d+)',
-            image_uri_template   => '',
-            release_uri_template => 'http://www.ozon.ru/context/detail/id/$1/?partner=musicbrainz',
+            uri_expression       => 'http://(?:www|mmedia).ozon\.ru/multimedia/(.*)',
+            image_uri_template   => 'http://mmedia.ozon.ru/multimedia/$1',
         ),
         RegularExpressionProvider->new(
             name                 => 'Encyclopédisque',
             domain               => 'encyclopedisque.fr',
             uri_expression       => 'http://www.encyclopedisque.fr/images/imgdb/(thumb250|main)/(\d+).jpg',
             image_uri_template   => 'http://www.encyclopedisque.fr/images/imgdb/thumb250/$2.jpg',
-            release_uri_template => 'http://www.encyclopedisque.fr/',
+            info_uri_template    => 'http://www.encyclopedisque.fr/',
         ),
         RegularExpressionProvider->new(
             name                 => 'Manj\'Disc',
             domain               => 'www.mange-disque.tv',
             uri_expression       => 'http://(www\.)?mange-disque\.tv/(fstb/tn_md_|fs/md_|info_disque\.php3\?dis_code=)(\d+)(\.jpg)?',
             image_uri_template   => 'http://www.mange-disque.tv/fs/md_$3.jpg',
-            release_uri_template => 'http://www.mange-disque.tv/info_disque.php3?dis_code=$3',
+            info_uri_template    => 'http://www.mange-disque.tv/info_disque.php3?dis_code=$3',
         ),
         RegularExpressionProvider->new(
             name               => 'Thastrom',
@@ -188,18 +187,21 @@ sub find_outdated_releases
         JOIN release_coverart ON release.id = release_coverart.id
         LEFT JOIN l_release_url l ON ( l.entity0 = release.id )
         LEFT JOIN link ON ( link.id = l.link )
-        LEFT JOIN link_type ON ( link_type.id = link.link_type )
+        LEFT JOIN link_type ON (
+          link_type.id = link.link_type AND
+          link_type.name IN (' . placeholders(@url_types) . ')
+        )
         LEFT JOIN url ON ( url.id = l.entity1 )
         WHERE release.id IN (
             SELECT id FROM release_coverart
             WHERE
                last_updated IS NULL OR NOW() - last_updated > ?
         ) AND (
-            link_type.name IN ('  . placeholders(@url_types) . ') OR
+            link_type.name IS NOT NULL OR
             release.barcode IS NOT NULL
         )
         ORDER BY release.id,
-                 _sort_order DESC,
+                 _sort_order DESC NULLS LAST,
                  l.last_updated DESC,
                  release.barcode NULLS LAST
     ) s
@@ -228,14 +230,14 @@ sub find_outdated_releases
             }
             return $release;
         }
-    }, $query, $pg_date_formatter->format_duration($since), @url_types);
+    }, $query, @url_types, $pg_date_formatter->format_duration($since));
 }
 
 sub cache_cover_art
 {
     my ($self, $release) = @_;
     my $cover_art;
-    for my $relationship (sort_by { $_->last_updated } $release->all_relationships) {
+    for my $relationship (rev_sort_by { $_->last_updated } $release->all_relationships) {
         last if defined($cover_art);
         $cover_art = $self->parse_from_type_url(
             $relationship->link->type->name,

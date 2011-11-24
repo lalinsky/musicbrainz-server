@@ -23,7 +23,7 @@ our %EXPORT_TAGS = (
     quality       => _get(qr/^QUALITY_/),
     annotation    => _get(qr/^EDIT_.*_ADD_ANNOTATION/),
     historic      => _get(qr/^EDIT_HISTORIC/),
-    editor        => _get(qr/^EDITOR_/)
+    editor        => _get(qr/^EDITOR_/),
 );
 
 our @EXPORT_OK = (
@@ -58,6 +58,7 @@ Readonly our $EDIT_ARTIST_ADD_ANNOTATION => 5;
 Readonly our $EDIT_ARTIST_ADD_ALIAS => 6;
 Readonly our $EDIT_ARTIST_DELETE_ALIAS => 7;
 Readonly our $EDIT_ARTIST_EDIT_ALIAS => 8;
+Readonly our $EDIT_ARTIST_EDITCREDIT => 9;
 
 Readonly our $EDIT_LABEL_CREATE => 10;
 Readonly our $EDIT_LABEL_EDIT => 11;

@@ -166,7 +166,7 @@ sub _merge_impl
     merge_table_attributes(
         $self->sql => (
             table => 'work',
-            columns => [ qw( type iswc comment ) ],
+            columns => [ qw( type iswc ) ],
             old_ids => \@old_ids,
             new_id => $new_id
         )
@@ -365,6 +365,54 @@ sub _find_recording_artists
             entity => $artist_credits->{$_}
         }, @$artist_credit_ids
     }
+}
+
+sub is_empty {
+    my ($self, $artist_id) = @_;
+
+    return $self->sql->select_single_value(<<'EOSQL', $artist_id);
+        SELECT TRUE
+        FROM work work_row
+        WHERE id = ?
+        AND edits_pending = 0
+        AND NOT (
+          EXISTS (
+            SELECT TRUE FROM l_artist_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_label_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_recording_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_release_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_release_group_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_url_work
+            WHERE entity1 = work_row.id
+            LIMIT 1
+          ) OR
+          EXISTS (
+            SELECT TRUE FROM l_work_work
+            WHERE entity0 = work_row.id OR entity1 = work_row.id
+            LIMIT 1
+          )
+        )
+EOSQL
 }
 
 __PACKAGE__->meta->make_immutable;

@@ -20,22 +20,37 @@ test 'can_merge for the merge strategy' => sub {
     MusicBrainz::Server::Test->prepare_test_database($test->c, '+release');
 
     ok(
-        $test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 6, 7),
+        $test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 6, old_ids => [ 7 ]
+        ),
         'can merge 2 discs with equal track counts'
     );
 
     ok(
-        $test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 7, 6),
+        $test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 7,
+            old_ids => [ 6 ]
+        ),
         'can merge 2 discs with equal track counts in opposite direction'
     );
 
     ok(
-        !$test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 6, 3),
+        !$test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 6,
+            old_ids => [ 3 ]
+        ),
         'cannot merge releases with different track counts'
     );
 
     ok(
-        !$test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 3, 6),
+        !$test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 3,
+            old_ids => [ 6 ]
+        ),
         'cannot merge releases with different track counts in opposite direction'
     );
 
@@ -50,18 +65,90 @@ test 'can_merge for the merge strategy' => sub {
     );
 
     ok(
-        $test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 6, 8),
+        $test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 6,
+            old_ids => [ 8 ]
+        ),
         'can merge with differing medium counts as long as position/track count matches'
     );
 
     ok(
-        !$test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 6, 3),
+        !$test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 6,
+            old_ids => [ 3 ]
+        ),
         'cannot merge with differing medium counts when there is a track count mismatch'
     );
 
     ok(
-        !$test->c->model('Release')->can_merge($MusicBrainz::Server::Data::Release::MERGE_MERGE, 8, 6),
+        !$test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_MERGE,
+            new_id => 8,
+            old_ids => [ 6]
+        ),
         'cannot merge when old mediums are not accounted for'
+    );
+};
+
+test 'can_merge for the append strategy' => sub {
+    my $test = shift;
+    $test->c->sql->do(<<'EOSQL');
+INSERT INTO artist_name (id, name) VALUES (1, 'Name');
+INSERT INTO artist (id, gid, name, sort_name)
+    VALUES (1, 'a9d99e40-72d7-11de-8a39-0800200c9a66', 1, 1);
+INSERT INTO artist_credit (id, name, artist_count) VALUES (1, 1, 1);
+INSERT INTO artist_credit_name (artist_credit, artist, name, position, join_phrase)
+    VALUES (1, 1, 1, 0, NULL);
+
+INSERT INTO release_name (id, name) VALUES (1, 'Release');
+ INSERT INTO release_group (id, gid, name, artist_credit)
+    VALUES (1, '3b4faa80-72d9-11de-8a39-0800200c9a66', 1, 1);
+INSERT INTO release (id, gid, name, artist_credit, release_group)
+    VALUES (1, '1a906020-72db-11de-8a39-0800200c9a66', 1, 1, 1),
+           (2, '2a906020-72db-11de-8a39-0800200c9a66', 1, 1, 1),
+           (3, '3a906020-72db-11de-8a39-0800200c9a66', 1, 1, 1);
+INSERT INTO tracklist (id) VALUES (1);
+INSERT INTO medium (id, release, position, tracklist)
+    VALUES (1, 1, 1, 1),
+           (2, 2, 1, 1),
+           (3, 3, 1, 1);
+EOSQL
+
+    ok(
+        $test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_APPEND,
+            new_id => 1,
+            old_ids => [ 3 ],
+            medium_positions => {
+                1 => 1,
+                3 => 2
+            }
+        )
+    );
+
+    $test->c->model('Release')->merge(
+        merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_APPEND,
+        new_id => 1,
+        old_ids => [ 3 ],
+        medium_positions => {
+            1 => 1,
+            3 => 2
+        }
+    );
+
+    ok(
+        $test->c->model('Release')->can_merge(
+            merge_strategy => $MusicBrainz::Server::Data::Release::MERGE_APPEND,
+            new_id => 1,
+            old_ids => [ 2 ],
+            medium_positions => {
+                1 => 1,
+                2 => 2,
+                3 => 3,
+            }
+        )
     );
 };
 
@@ -222,6 +309,7 @@ memory_cycle_ok($release_data);
 
 $release = $release_data->get_by_id($release->id);
 ok(!defined $release);
+
 $sql->commit;
 
 # Both #1 and #2 are in the DB
@@ -280,6 +368,21 @@ $release = $release_data->get_by_id(8);
 ok(defined $release);
 $release = $release_data->get_by_id(9);
 ok(!defined $release);
+
+# Try deleting all releases
+
+my $release_group;
+$test->c->model('ReleaseGroup')->update(1, { edits_pending => 0 });
+
+for my $id (1, 2, 6, 8) {
+    $release_group = $test->c->model('ReleaseGroup')->get_by_id(1);
+    ok(defined $release_group, 'release group with releases exists');
+
+    $release_data->delete($id);
+}
+
+$release_group = $test->c->model('ReleaseGroup')->get_by_id(1);
+ok(!defined $release_group, 'deleting last release deletes release group');
 
 $sql->commit;
 

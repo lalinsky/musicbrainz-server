@@ -80,6 +80,9 @@
                       [% artist.latest_annotation.text ? l('Edit annotation') : l('Add annotation') %]
                     </a>
                   </li>
+                  <li>
+                    [% link_artist(artist, 'split', l('Split into separate artists')) %]
+                  </li>
                 [% END %]
 
                   <li>
@@ -118,13 +121,6 @@
                     <li><a href="[% c.uri_for_action('/account/subscriptions/artist/add', { id => artist.id }) %]">[% l('Subscribe') %]</a></li>
                 [% END %]
                 <li>[% link_entity(artist, 'subscribers', l('Subscribers')) %]</li>
-            [% END %]
-            [% IF watching_artist %]
-                <li>
-                    [% link_entity(artist, 'stop_watching', l('Do not watch for new releases')) %]
-                </li>
-            [% ELSE %]
-                <li>[% link_entity(artist, 'watch', l('Watch for new releases')) %]</li>
             [% END %]
         </ul>
         [% END %]

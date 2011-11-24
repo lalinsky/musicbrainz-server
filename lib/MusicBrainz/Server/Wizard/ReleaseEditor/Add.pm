@@ -2,9 +2,9 @@ package MusicBrainz::Server::Wizard::ReleaseEditor::Add;
 use Moose;
 use namespace::autoclean;
 
-use CGI::Expand qw( collapse_hash );
+use MusicBrainz::Server::CGI::Expand qw( collapse_hash );
 use MusicBrainz::Server::Translation qw( l );
-use MusicBrainz::Server::Data::Utils qw( artist_credit_to_edit_ref hash_structure object_to_ids );
+use MusicBrainz::Server::Data::Utils qw( object_to_ids artist_credit_to_ref );
 use MusicBrainz::Server::Edit::Utils qw( clean_submitted_artist_credits );
 use MusicBrainz::Server::Entity::ArtistCredit;
 use List::UtilsBy qw( uniq_by );
@@ -155,14 +155,16 @@ augment 'create_edits' => sub
         my $edit = $create_edit->($EDIT_RELEASEGROUP_CREATE, $editnote, %args);
 
         # Previewing a release doesn't care about having the release group id
-        $add_release_args{release_group_id} = $edit->entity->id
+        $add_release_args{release_group_id} = $edit->entity_id
             unless $previewing;
     }
 
     # Add the release edit
     my $add_release_edit = $create_edit->(
         $EDIT_RELEASE_CREATE, $editnote, %add_release_args);
-    $release = $add_release_edit->entity;
+
+    $release = $self->c->model('Release')->get_by_id($add_release_edit->entity_id)
+        unless $previewing;
 
     return $release;
 };
@@ -190,21 +192,18 @@ after 'prepare_tracklist' => sub {
         next unless defined $medium->{edits};
 
         my @edits = @{ $json->decode ($medium->{edits}) };
-        for my $edit (@edits)
+        for my $trk_idx (0..$#edits)
         {
+            my $trk = $edits[$trk_idx];
+
             # If the track artist is not set, or identical to the release artist,
             # use the identified release artist for all tracks.
-            next unless $edit->{artist_credit}->{preview} eq $release_artist->name
-                || $edit->{artist_credit}->{preview} eq '';
+            next unless $trk->{artist_credit}->{preview} eq $release_artist->name
+                || $trk->{artist_credit}->{preview} eq '';
 
-            $edit->{artist_credit} = artist_credit_to_edit_ref ($release_artist);
+            $trk->{artist_credit} = artist_credit_to_ref ($release_artist);
 
-            $edit->{edit_sha1} = hash_structure (
-                {
-                    name => $edit->{name},
-                    length => $edit->{length},
-                    artist_credit => $edit->{artist_credit},
-                });
+            $edits[$trk_idx] = $self->update_track_edit_hash ($trk);
         }
         $medium->{edits} = $json->encode (\@edits);
     }

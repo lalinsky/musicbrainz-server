@@ -285,7 +285,7 @@ ok(!$artist_data->can_delete(3));
     });
     isa_ok($artist, 'MusicBrainz::Server::Entity::Artist');
 
-    my $found = $artist_data->find_by_names('Test Artist', 'Minimal Artist');
+    my $found = $artist_data->search_by_names('Test Artist', 'Minimal Artist');
     is (scalar @{ $found->{'Test Artist'} }, 2, 'Found two test artists');
     my @testartists = sort_by { $_->comment } @{ $found->{'Test Artist'} };
     is($testartists[0]->comment, 'J-Pop artist');
@@ -353,6 +353,31 @@ test 'Deny delete "Deleted Artist" trigger' => sub {
     like exception {
         $c->sql->do ("DELETE FROM artist WHERE id = $DARTIST_ID")
     }, qr/ERROR:\s*Attempted to delete a special purpose row/;
+};
+
+test 'Merging attributes' => sub {
+    my $c = shift->c;
+    $c->sql->do('INSERT INTO artist_name (id, name) VALUES (1, ?)', 'artist name');
+    $c->sql->do('INSERT INTO artist (id, gid, name, sort_name) VALUES (?, ?, ?, ?)',
+                3, '745c079d-374e-4436-9448-da92dedef3ce', 1, 1);
+    $c->sql->do('INSERT INTO artist (id, gid, name, sort_name, begin_date_year, end_date_year, end_date_day)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)',
+                4, '145c079d-374e-4436-9448-da92dedef3ce', 1, 1, 2000, 2005, 12);
+    $c->sql->do('INSERT INTO artist (id, gid, name, sort_name, begin_date_year, begin_date_month)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+                5, '245c079d-374e-4436-9448-da92dedef3ce', 1, 1, 2000, 06);
+
+    use Devel::Dwarn;
+
+    $c->model('Artist')->merge(3, [4, 5]);
+    my $artist = $c->model('Artist')->get_by_id(3);
+    is($artist->begin_date->year, 2000);
+    is($artist->begin_date->month, 6);
+    is($artist->begin_date->day, undef);
+
+    is($artist->end_date->year, 2005);
+    is($artist->end_date->month, undef);
+    is($artist->end_date->day, 12);
 };
 
 1;

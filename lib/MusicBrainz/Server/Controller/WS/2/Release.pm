@@ -9,7 +9,7 @@ use MusicBrainz::Server::Constants qw(
 use List::UtilsBy qw( uniq_by );
 use MusicBrainz::Server::WebService::XML::XPath;
 use Readonly;
-use TryCatch;
+use Try::Tiny;
 
 my $ws_defs = Data::OptList::mkopt([
      release => {
@@ -19,8 +19,9 @@ my $ws_defs = Data::OptList::mkopt([
      },
      release => {
                          method   => 'GET',
-                         linked   => [ qw(artist label recording release-group) ],
-                         inc      => [ qw(artist-credits labels recordings discids media _relations) ],
+                         linked   => [ qw(track_artist artist label recording release-group) ],
+                         inc      => [ qw(artist-credits labels recordings discids
+                                          release-groups media _relations) ],
                          optional => [ qw(limit offset) ],
      },
      release => {
@@ -183,6 +184,15 @@ sub release_browse : Private
             $artist->id, $limit, $offset, $c->stash->{status}, $c->stash->{type});
         $releases = $self->make_list (@tmp, $offset);
     }
+    elsif ($resource eq 'track_artist')
+    {
+        my $artist = $c->model('Artist')->get_by_gid($id);
+        $c->detach('not_found') unless ($artist);
+
+        my @tmp = $c->model('Release')->find_by_track_artist (
+            $artist->id, $limit, $offset, $c->stash->{status}, $c->stash->{type});
+        $releases = $self->make_list (@tmp, $offset);
+    }
     elsif ($resource eq 'label')
     {
         my $label = $c->model('Label')->get_by_gid($id);
@@ -279,7 +289,8 @@ sub release_submit : Private
                 }, @submit ]
             );
         }
-        catch ($e) {
+        catch {
+            my $e = $_;
             $self->_error($c, "This edit could not be successfully created: $e");
         }
     }

@@ -17,7 +17,6 @@ use Storable;
 
 our @EXPORT_OK = qw(
     add_partial_date_to_row
-    artist_credit_to_edit_ref
     artist_credit_to_ref
     check_data
     check_in_use
@@ -33,6 +32,7 @@ our @EXPORT_OK = qw(
     load_subobjects
     map_query
     merge_table_attributes
+    merge_partial_date
     model_to_type
     object_to_ids
     order_by
@@ -105,36 +105,6 @@ sub artist_credit_to_ref
     }
 
     $ret{preview} = $artist_credit->name if !$for_change_hash;
-
-    return \%ret;
-}
-
-# This is still needed because it is the "internal" format used
-# by root/static/scripts/release-editor/MB/Control/ReleaseEdits.js.
-# FIXME: remove the need for this function, consolidate to the
-# format used by artist_credit_to_ref.
-sub artist_credit_to_edit_ref
-{
-    my ($artist_credit) = @_;
-
-    return $artist_credit unless blessed $artist_credit;
-
-    my %ret = ( names => [] );
-
-    for ($artist_credit->all_names)
-    {
-        my %ac_name = (
-            join => $_->join_phrase,
-            name => $_->name,
-            artist_name => $_->artist->name,
-            id => $_->artist->id,
-            gid => $_->artist->gid,
-        );
-
-        push @{ $ret{names} }, \%ac_name;
-    }
-
-    $ret{preview} = $artist_credit->name;
 
     return \%ret;
 }
@@ -340,7 +310,7 @@ sub add_partial_date_to_row
 
 sub type_to_model
 {
-    return $TYPE_TO_MODEL{$_[0]} || undef;
+    return $TYPE_TO_MODEL{$_[0]} || die "$_[0] is not a type that has a model";
 }
 
 sub model_to_type
@@ -444,6 +414,40 @@ sub merge_table_attributes {
             WHERE id = ?',
         (@all_ids, $new_id) x @columns, $new_id
     );
+}
+
+sub merge_partial_date {
+    my ($sql, %named_params) = @_;
+    my $table = $named_params{table} or confess 'Missing parameter $table';
+    my $new_id = $named_params{new_id} or confess 'Missing parameter $new_id';
+    my @old_ids = @{ $named_params{old_ids} } or confess 'Missing parameter \@old_ids';
+    my ($year, $month, $day) = map { join('_', $named_params{field}, $_) } qw( year month day );
+
+    $sql->do("
+    UPDATE $table SET $day = most_complete.$day,
+                      $month = most_complete.$month,
+                      $year = most_complete.$year
+    FROM (
+        SELECT $day, $month, $year,
+               (CASE WHEN $year IS NOT NULL THEN 100
+                    ELSE 0
+               END +
+               CASE WHEN $month IS NOT NULL THEN 10
+                    ELSE 0
+               END +
+               CASE WHEN $day IS NOT NULL THEN 1
+                    ELSE 0
+               END) AS weight
+        FROM $table
+        WHERE id = any(?)
+        ORDER BY weight DESC
+        LIMIT 1
+    ) most_complete
+    WHERE id = ?
+      AND $table.$day IS NULL
+      AND $table.$month IS NULL
+      AND $table.$year IS NULL",
+             \@old_ids, $new_id);
 }
 
 sub is_special_artist {

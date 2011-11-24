@@ -36,6 +36,7 @@ isa_ok($edit, 'MusicBrainz::Server::Edit::Medium::Edit');
 cmp_set($edit->related_entities->{artist}, [ 1, 2 ]);
 cmp_set($edit->related_entities->{release}, [ 1 ]);
 cmp_set($edit->related_entities->{release_group}, [ 1 ]);
+cmp_set($edit->related_entities->{recording}, [ 1 ]);
 
 $edit = $c->model('Edit')->get_by_id($edit->id);
 $medium = $c->model('Medium')->get_by_id(1);
@@ -182,6 +183,8 @@ test 'Accept/failure conditions regarding links' => sub {
         $c->model('ArtistCredit')->load($medium->tracklist->all_tracks);
 
         my $track = $medium->tracklist->tracks->[0];
+        my $old_recording_id = $track->recording_id;
+
         my $edit = $c->model('Edit')->create(
             editor_id => 1,
             edit_type => $EDIT_MEDIUM_EDIT,
@@ -200,9 +203,27 @@ test 'Accept/failure conditions regarding links' => sub {
         is(@{ $edit->display_data->{artist_credit_changes} }, 0, '0 artist credit changes');
         is(@{ $edit->display_data->{recording_changes} }, 1, '1 recording change');
 
-        is($edit->display_data->{recording_changes}[0][1]->recording->id, 100, 'was recording 100');
-        is($edit->display_data->{recording_changes}[0][2]->recording->id, 1, 'now recording 1');
+        is($edit->display_data->{recording_changes}[0][1]->recording_id, 100, 'was recording 100');
+        is($edit->display_data->{recording_changes}[0][2]->recording_id, 1, 'now recording 1');
+
+        ok(!defined($c->model('Recording')->get_by_id($old_recording_id)),
+           'the recording has been garbage collected');
+
+        ok(defined($c->model('Recording')->get_by_id(1)),
+           'the new recording exists');
     };
+
+    # Creates recording 101
+    my ($merge_target, $merge_me) = $c->model('Recording')->insert(
+        {
+            name => 'Merge into me',
+            artist_credit => 1
+        },
+        {
+            name => 'Merge me away',
+            artist_credit => 1
+        }
+    );
 
     # XXX TODO You should be able to do this!
     subtest 'Cannot change to a recording if its merged away (yet)' => sub {
@@ -217,15 +238,20 @@ test 'Accept/failure conditions regarding links' => sub {
             to_edit   => $medium,
             tracklist => [
                 $track->meta->clone_object($track,
-                    recording_id => 100
+                    recording_id => $merge_me->id
                 )
             ]
         );
 
-        $c->model('Recording')->merge(1, 100);
+        $c->model('Recording')->merge($merge_target->id, $merge_me->id);
 
         isa_ok exception { $edit->accept }, 'MusicBrainz::Server::Edit::Exceptions::FailedDependency';
     };
+
+    my $new_rec = $c->model('Recording')->insert({
+        name => 'Existing recording',
+        artist_credit => 1
+    });
 
     subtest 'Adding a new recording with an existing ID is successful' => sub {
         $medium = $c->model('Medium')->get_by_id(1);
@@ -250,7 +276,7 @@ test 'Accept/failure conditions regarding links' => sub {
                                 )
                             )]),
                     position => 2,
-                    recording_id => 1,
+                    recording_id => $new_rec->id,
                     length => undef
                 )
             ]
@@ -287,7 +313,7 @@ test 'Accept/failure conditions regarding links' => sub {
             name => 'New recording'
         });
 
-        $c->model('Recording')->merge($recording->id, 1);
+        $c->model('Recording')->merge($recording->id, $new_rec->id);
 
         $edit->accept;
 
@@ -297,6 +323,66 @@ test 'Accept/failure conditions regarding links' => sub {
         is($edit->display_data->{tracklist_changes}->[1][0], 'c', 'tracklist change 2 is a change');
 
         is(@{ $edit->display_data->{artist_credit_changes} }, 0, '0 artist credit changes');
+    };
+};
+
+test 'Auto-editing edit medium' => sub {
+    my $test = shift;
+    my $c    = $test->c;
+    MusicBrainz::Server::Test->prepare_test_database($c, '+edit_medium');
+
+    my $medium;
+
+    subtest 'Adding a new recording is successful' => sub {
+        $medium = $c->model('Medium')->get_by_id(1);
+        $c->model('Track')->load_for_tracklists($medium->tracklist);
+        $c->model('ArtistCredit')->load($medium->tracklist->all_tracks);
+
+        ok !exception {
+            $c->model('Edit')->create(
+                editor_id  => 1,
+                privileges => 1,
+                edit_type  => $EDIT_MEDIUM_EDIT,
+                to_edit    => $medium,
+                tracklist  => [
+                    Track->new(
+                        name => 'New track 1',
+                        artist_credit => ArtistCredit->new(
+                            names => [
+                                ArtistCreditName->new(
+                                    name => 'Warp Industries',
+                                    artist => Artist->new(
+                                        id => 2,
+                                        name => 'Artist',
+                                    )
+                                )]),
+                        position => 1,
+                        length => undef
+                    )
+                ]
+            )
+        }
+    };
+
+    subtest 'Can change the recording to another existing recording' => sub {
+        $medium = $c->model('Medium')->get_by_id(1);
+        $c->model('Track')->load_for_tracklists($medium->tracklist);
+        $c->model('ArtistCredit')->load($medium->tracklist->all_tracks);
+
+        my $track = $medium->tracklist->tracks->[0];
+        my $old_recording_id = $track->recording_id;
+
+        ok !exception {
+            $c->model('Edit')->create(
+                editor_id  => 1,
+                privileges => 1,
+                edit_type  => $EDIT_MEDIUM_EDIT,
+                to_edit    => $medium,
+                tracklist  => [
+                    $track->meta->clone_object($track, recording_id => 1)
+                ]
+            )
+        };
     };
 };
 
