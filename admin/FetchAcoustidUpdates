@@ -61,8 +61,7 @@ Usage: FetchAcoustidUpdates [options]
 EOF
 }
 
-if ($help)
-{
+if ($help) {
     usage();
     exit 0;
 }
@@ -81,8 +80,7 @@ my ($schema_seq, $repl_seq, $repl_date) = @{
         FROM acoustid_mb_replication_control");
 };
 
-unless (defined $repl_seq)
-{
+unless (defined $repl_seq) {
     print localtime() . " : This database does not correspond to any replication sequence"
         . " - you cannot update this database using replication\n";
     exit 1;
@@ -101,22 +99,18 @@ my @files = (
 my $ua = LWP::UserAgent->new(agent => 'FetchAcoustidUpdates');
 $ua->env_proxy;
 
-for my $file (@files)
-{
+for my $file (@files) {
     my $url = "$baseuri/$file";
     my $localfile = "$mydir/$file";
 
     print localtime() . " : Downloading $url to $localfile\n";
     my $resp = $ua->mirror($url, $localfile);
 
-    if ($resp->code == RC_NOT_FOUND)
-    {
+    if ($resp->code == RC_NOT_FOUND)     {
         print localtime() . " : Replication packet #$next_repl_seq not available\n";
         exit 0;
     }
-
-    unless ($resp->code == RC_OK or $resp->code == RC_NOT_MODIFIED)
-    {
+    unless ($resp->code == RC_OK or $resp->code == RC_NOT_MODIFIED) {
         print $resp->as_string;
         exit 1;
     }
@@ -132,8 +126,7 @@ my $gpgout = `gpg --verify $localascfile 2>&1`;
 print $gpgout;
 exit $? if $?;
 
-unless ($gpgout =~ /D47C 0856 B64C 27DF 085F  1796 73D2 4F75 B8ED 25DD/)
-{
+unless ($gpgout =~ /D47C 0856 B64C 27DF 085F  1796 73D2 4F75 B8ED 25DD/) {
     print localtime() . " : The signature has invalid fingerprint\n";
     exit 0;
 }
